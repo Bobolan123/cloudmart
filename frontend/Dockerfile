@@ -16,5 +16,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV NODE_ENV=production
-COPY --from=builder /app/server.js ./
+
 CMD ["node", "server.js"]
