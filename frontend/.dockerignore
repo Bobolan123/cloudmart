@@ -1,0 +1,7 @@
+# Frontend Docker Ignore
+node_modules
+.npm
+.env.local
+.env.*.local
+.next
+.DS_Store
