@@ -1,0 +1,8 @@
+# Backend Docker Ignore
+node_modules
+npm-debug.log
+.DS_Store
+ uploads
+*.tsbuildinfo
+.env.local
+.env.*.local

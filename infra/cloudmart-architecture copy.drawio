@@ -1,0 +1,157 @@
+<mxfile host="app.diagrams.net" agent="draw.io">
+  <diagram id="cloudmart-alb-architecture" name="CloudMart - ALB + Private EC2">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169">
+      <root>
+
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- USERS -->
+        <mxCell id="users" value="Users" style="shape=mxgraph.aws4.user;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- INTERNET -->
+        <mxCell id="internet" value="Internet" style="shape=cloud;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="70" width="140" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- ROUTE53 -->
+        <mxCell id="route53" value="Route 53&#10;cloudmart.com" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;html=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="80" width="70" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- VPC -->
+        <mxCell id="vpc" value="VPC - cloudmart-vpc-prod&#10;10.0.0.0/16" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;html=1;fontStyle=1;fontSize=14;strokeColor=#8C4FFF;fontColor=#8C4FFF;" vertex="1" parent="1">
+          <mxGeometry x="120" y="200" width="1200" height="700" as="geometry"/>
+        </mxCell>
+
+        <!-- PUBLIC SUBNET A -->
+        <mxCell id="public-a" value="Public Subnet A&#10;cloudmart-public-subnet-a&#10;10.0.1.0/24&#10;ap-southeast-1a" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_public_subnet;html=1;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="260" width="500" height="250" as="geometry"/>
+        </mxCell>
+
+        <!-- PUBLIC SUBNET B -->
+        <mxCell id="public-b" value="Public Subnet B&#10;cloudmart-public-subnet-b&#10;10.0.2.0/24&#10;ap-southeast-1b" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_public_subnet;html=1;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="720" y="260" width="500" height="250" as="geometry"/>
+        </mxCell>
+
+        <!-- PRIVATE SUBNET -->
+        <mxCell id="private-a" value="Private Subnet A&#10;cloudmart-private-subnet-a&#10;10.0.10.0/24&#10;ap-southeast-1a" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_private_subnet;html=1;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="560" width="800" height="280" as="geometry"/>
+        </mxCell>
+
+        <!-- IGW -->
+        <mxCell id="igw" value="Internet Gateway&#10;cloudmart-igw" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.internet_gateway;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="330" width="70" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- ALB -->
+        <mxCell id="alb" value="Application Load Balancer&#10;cloudmart-alb&#10;HTTPS :443&#10;HTTP :80 → Redirect" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.application_load_balancer;html=1;" vertex="1" parent="1">
+          <mxGeometry x="550" y="310" width="80" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- ACM -->
+        <mxCell id="acm" value="ACM Certificate&#10;cloudmart.com" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.certificate_manager;html=1;" vertex="1" parent="1">
+          <mxGeometry x="760" y="320" width="70" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- EC2 -->
+        <mxCell id="ec2" value="EC2&#10;cloudmart-app-server&#10;t3.small&#10;Private IP Only" style="shape=mxgraph.aws4.ec2;html=1;" vertex="1" parent="1">
+          <mxGeometry x="630" y="650" width="80" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- IAM -->
+        <mxCell id="iam" value="IAM Role&#10;cloudmart-app-role&#10;S3 + SQS" style="shape=mxgraph.aws4.role;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="650" width="70" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- DOCKER -->
+        <mxCell id="docker" value="Docker Compose" style="swimlane;html=1;fontStyle=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="780" y="600" width="250" height="180" as="geometry"/>
+        </mxCell>
+
+        <!-- FRONTEND -->
+        <mxCell id="frontend" value="Frontend&#10;Next.js&#10;Port 3000" style="rounded=1;fillColor=#ffe6cc;html=1;" vertex="1" parent="docker">
+          <mxGeometry x="20" y="50" width="90" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- BACKEND -->
+        <mxCell id="backend" value="Backend&#10;Express.js&#10;Port 4000" style="rounded=1;fillColor=#dae8fc;html=1;" vertex="1" parent="docker">
+          <mxGeometry x="140" y="50" width="90" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- TG FRONTEND -->
+        <mxCell id="tg-fe" value="Target Group&#10;cloudmart-frontend-tg&#10;Port 3000" style="rounded=1;fillColor=#d5e8d4;html=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="500" width="140" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- TG BACKEND -->
+        <mxCell id="tg-be" value="Target Group&#10;cloudmart-backend-tg&#10;Port 4000" style="rounded=1;fillColor=#d5e8d4;html=1;" vertex="1" parent="1">
+          <mxGeometry x="720" y="500" width="140" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- S3 -->
+        <mxCell id="s3" value="S3&#10;cloudmart-media" style="shape=mxgraph.aws4.s3;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="620" width="70" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- SQS -->
+        <mxCell id="sqs" value="SQS&#10;order-queue" style="shape=mxgraph.aws4.sqs;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="740" width="70" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- CONNECTIONS -->
+
+        <mxCell id="e1" edge="1" parent="1" source="users" target="internet">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e2" edge="1" parent="1" source="internet" target="route53">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e3" edge="1" parent="1" source="route53" target="igw" value="cloudmart.com">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e4" edge="1" parent="1" source="igw" target="alb" value="HTTPS 443">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e5" edge="1" parent="1" source="acm" target="alb" value="SSL Certificate">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e6" edge="1" parent="1" source="alb" target="tg-fe" value="/">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e7" edge="1" parent="1" source="alb" target="tg-be" value="/api/*">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e8" edge="1" parent="1" source="tg-fe" target="ec2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e9" edge="1" parent="1" source="tg-be" target="ec2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e10" edge="1" parent="1" source="iam" target="ec2" style="dashed=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e11" edge="1" parent="1" source="backend" target="s3" value="PutObject / GetObject" style="dashed=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e12" edge="1" parent="1" source="backend" target="sqs" value="SendMessage" style="dashed=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
