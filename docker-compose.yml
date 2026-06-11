@@ -1,0 +1,20 @@
+services:
+  frontend:
+    container_name: cloudmart-frontend
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://api.bolan.click
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  backend:
+    container_name: cloudmart-backend
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:4000:4000"
