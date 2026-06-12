@@ -43,7 +43,7 @@ export async function login(email: string, password: string) {
   const valid = await bcrypt.compare(password, user.passwordHash)
   if (!valid) throw new AppError(401, 'Invalid credentials')
 
-  if (!user.isVerified) throw new AppError(403, 'Please verify your email first')
+  // if (!user.isVerified) throw new AppError(403, 'Please verify your email first')
 
   const payload = { userId: user.id, role: user.role }
   const accessToken = signAccessToken(payload)

@@ -1,12 +1,15 @@
+# docker-compose.yml
 services:
   frontend:
     container_name: cloudmart-frontend
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_URL: https://api.bolan.click
+        # Changed to main domain to match Nginx path-based routing and prevent CORS
+        NEXT_PUBLIC_API_URL: https://bolan.click
     restart: unless-stopped
     ports:
+      # Bind to localhost only, forcing traffic through Nginx
       - "127.0.0.1:3000:3000"
 
   backend:
@@ -15,6 +18,8 @@ services:
       context: ./backend
     restart: unless-stopped
     env_file:
+      # Ensure this file exists and contains variables like DATABASE_URL, CLIENT_URL
       - ./backend/.env
     ports:
+      # Bind to localhost only, forcing traffic through Nginx
       - "127.0.0.1:4000:4000"
