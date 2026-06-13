@@ -10,31 +10,24 @@ export async function register(email: string, password: string, name: string) {
   if (existing) throw new AppError(409, 'Email already in use')
 
   const passwordHash = await bcrypt.hash(password, 10)
-  const verifyToken = crypto.randomBytes(32).toString('hex')
 
   const user = await prisma.user.create({
-    data: { email, passwordHash, name, verifyToken },
+    data: { email, passwordHash, name },
     select: { id: true, email: true, name: true, role: true },
-  })
-
-  await sendEmail({
-    to: email,
-    subject: 'Verify your CloudMart account',
-    html: `<p>Click to verify: <a href="${process.env.CLIENT_URL}/verify-email?token=${verifyToken}">Verify Email</a></p>`,
   })
 
   return user
 }
 
-export async function verifyEmail(token: string) {
-  const user = await prisma.user.findFirst({ where: { verifyToken: token } })
-  if (!user) throw new AppError(400, 'Invalid verification token')
+// export async function verifyEmail(token: string) {
+//   const user = await prisma.user.findFirst({ where: { verifyToken: token } })
+//   if (!user) throw new AppError(400, 'Invalid verification token')
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { isVerified: true, verifyToken: null },
-  })
-}
+//   await prisma.user.update({
+//     where: { id: user.id },
+//     data: { isVerified: true, verifyToken: null },
+//   })
+// }
 
 export async function login(email: string, password: string) {
   const user = await prisma.user.findUnique({ where: { email } })
@@ -100,11 +93,11 @@ export async function forgotPassword(email: string) {
 
   await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetTokenExp } })
 
-  await sendEmail({
-    to: email,
-    subject: 'Reset your CloudMart password',
-    html: `<p>Click to reset: <a href="${process.env.CLIENT_URL}/reset-password?token=${resetToken}">Reset Password</a></p><p>Expires in 1 hour.</p>`,
-  })
+  // await sendEmail({
+  //   to: email,
+  //   subject: 'Reset your CloudMart password',
+  //   html: `<p>Click to reset: <a href="${process.env.CLIENT_URL}/reset-password?token=${resetToken}">Reset Password</a></p><p>Expires in 1 hour.</p>`,
+  // })
 }
 
 export async function resetPassword(token: string, newPassword: string) {
