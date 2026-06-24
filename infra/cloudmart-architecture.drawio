@@ -92,14 +92,8 @@
         <mxCell id="e-ec2-cw" edge="1" parent="1" source="ec2" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#E7157B;fontColor=#E7157B;fontSize=10;" target="cloudwatch" value="container logs">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="dlq-note" parent="1" style="text;html=1;strokeColor=#E7157B;fillColor=#f8cecc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;" value="DLQ: max 3 retries → CloudWatch Alarm → Email admin" vertex="1">
-          <mxGeometry height="36" width="270" x="1045" y="790" as="geometry" />
-        </mxCell>
-        <mxCell id="order-flow" parent="1" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;" value="&lt;b&gt;Order Flow (async):&lt;/b&gt;&#xa;1. User checkout → Backend tạo order&#xa;2. Backend → SQS SendMessage&#xa;3. Backend trả 201 về user ngay&#xa;4. SQS trigger Lambda&#xa;5. Lambda → SES gửi email" vertex="1">
-          <mxGeometry height="110" width="270" x="1045" y="830" as="geometry" />
-        </mxCell>
-        <mxCell id="w5z_G1fh6wwBVFgvM6Vx-1" parent="1" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.ses;fillColor=#D9A741;gradientColor=none;" value="" vertex="1">
-          <mxGeometry height="93" width="79.5" x="1070" y="679.5" as="geometry" />
+        <mxCell id="order-flow" parent="1" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;" value="&lt;b&gt;Order Flow (CRUD đồng bộ):&lt;/b&gt;&#xa;1. User checkout → Backend validate cart + stock&#xa;2. Tạo order trong 1 transaction (decrement stock)&#xa;3. Clear cart&#xa;4. Backend trả 201 về user&#xa;(không SQS / Lambda / event bus, không email)" vertex="1">
+          <mxGeometry height="110" width="270" x="1045" y="790" as="geometry" />
         </mxCell>
         <mxCell id="nginx" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;verticalAlign=middle;" value="&lt;b&gt;Nginx&lt;/b&gt;&#xa;:80 / :443&#xa;──────&#xa;Reverse Proxy" vertex="1">
           <mxGeometry height="140" width="120" x="214" y="469" as="geometry" />
