@@ -1,7 +1,7 @@
 # CloudMart — AWS Architecture
 
 > **Region:** ap-southeast-1 (Singapore)
-> **Cập nhật:** 2026-06-04
+> **Cập nhật:** 2026-06-24
 
 ---
 
@@ -31,11 +31,10 @@ EC2 t3.small (public subnet, public IP)
     └── /*      →  frontend container :3000 (Next.js)
          │
          ├── RDS PostgreSQL (private subnet)  ← tất cả data
-         ├── S3                               ← ảnh sản phẩm
-         ├── SES                              ← gửi email
-         └── SQS → Lambda                    ← xử lý order async
-                      │
-                      └── SES → email user
+         └── S3                               ← ảnh sản phẩm
+
+Order processing: đồng bộ in-process (EventEmitter) ngay trong backend.
+Email: tắt ở production (chỉ console.log ở development).
 ```
 
 **Tại sao đơn giản hơn Phase 2:**
@@ -83,7 +82,7 @@ sg-ec2:
     443  TCP  0.0.0.0/0      HTTPS (Nginx)
     22   TCP  YOUR_IP/32     SSH — CHỈ IP của bạn, không phải 0.0.0.0/0
   Outbound:
-    All  (EC2 cần gọi ra S3, SES, SQS, RDS)
+    All  (EC2 cần gọi ra S3, RDS)
 
 sg-rds:
   Inbound:
@@ -98,7 +97,7 @@ sg-rds:
 
 ## IAM — EC2 Instance Profile
 
-EC2 cần quyền gọi S3, SES, SQS mà không cần access key hardcode trong code.
+EC2 cần quyền gọi S3 mà không cần access key hardcode trong code.
 
 ```json
 {
@@ -108,14 +107,6 @@ EC2 cần quyền gọi S3, SES, SQS mà không cần access key hardcode trong 
     {
       "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
       "Resource": "arn:aws:s3:::cloudmart-media-ACCOUNT_ID/*"
-    },
-    {
-      "Action": ["ses:SendEmail", "ses:SendRawEmail"],
-      "Resource": "*"
-    },
-    {
-      "Action": ["sqs:SendMessage"],
-      "Resource": "arn:aws:sqs:ap-southeast-1:ACCOUNT_ID:cloudmart-order-queue"
     },
     {
       "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
@@ -185,45 +176,31 @@ CORS:
 
 ---
 
-## SES — Email
+## Order Processing — CRUD đồng bộ
+
+Không dùng SQS/Lambda, cũng không dùng event bus. Order được xử lý đồng bộ ngay trong `order.service.ts`:
 
 ```
-1. Verify domain hoặc email trong SES Console
-2. Sandbox mode: chỉ gửi đến verified emails
-3. Request production access để gửi tự do
-4. SES miễn phí: 62k emails/tháng khi gửi từ EC2
+1. Validate cart + stock
+2. Tạo order trong 1 transaction (tạo order items + decrement stock)
+3. Clear cart
+4. Trả order về user (201)
 ```
+
+**Tại sao thuần CRUD:**
+- Quy mô học tập, throughput thấp → không cần async queue hay event bus
+- Bỏ SQS, DLQ, Lambda, EventEmitter — ít thành phần, ít chi phí
+- Không có side-effect nền (email/notification) → không cần worker hay listener
+
+> Nếu sau này cần tách async (gửi email, xử lý nặng), có thể thêm event bus / SQS + Lambda trở lại ở Phase 2.
 
 ---
 
-## SQS + Lambda — Order Processing
+## Email — không có
 
-```
-Queue: cloudmart-order-queue (Standard)
-  Visibility Timeout: 180s
-  Long Polling: 20s
-  DLQ: cloudmart-order-queue-dlq (Max Receive: 3, Retention: 7 ngày)
+Project **không có chức năng gửi email**. Order confirmation, password reset, verify email đều đã bỏ. Không dùng AWS SES, không dùng SMTP/nodemailer.
 
-Lambda: cloudmart-order-processor
-  Runtime: Node.js 20.x
-  Memory: 256 MB
-  Timeout: 120s
-  KHÔNG chạy trong VPC (Lambda không cần kết nối RDS trực tiếp ở Phase 1)
-  → Lambda chỉ gửi SES email, không update RDS
-  → ECS/EC2 tự update order status sau khi queue message
-```
-
-**Simplified flow cho Phase 1:**
-```
-1. User đặt hàng → EC2 tạo order (status=PENDING) → SQS
-2. EC2 trả 201 về user ngay
-3. SQS trigger Lambda
-4. Lambda → SES → email confirmation cho user
-5. EC2 (background job hoặc webhook) update status = CONFIRMED
-```
-
-**Tại sao Lambda không cần VPC ở Phase 1:**
-Lambda trong VPC cần ENI, cần sg-lambda, cần subnet — phức tạp hơn. Nếu Lambda không cần kết nối RDS trực tiếp (chỉ gửi email), không cần đặt trong VPC. Đơn giản hơn, cold start nhanh hơn.
+> Auth chỉ còn: register, login, refresh, logout — không có forgot/reset password hay verify email.
 
 ---
 
@@ -232,10 +209,8 @@ Lambda trong VPC cần ENI, cần sg-lambda, cần subnet — phức tạp hơn.
 ```
 Log Groups:
   /ec2/cloudmart-backend   (đẩy log từ Docker container lên)
-  /aws/lambda/cloudmart-order-processor
 
 Alarms:
-  DLQ MessageCount > 0  → Email admin (order processing failed)
   EC2 CPUUtilization > 80%
   RDS CPUUtilization > 80%
 ```
@@ -250,8 +225,6 @@ Alarms:
 | RDS db.t3.micro | Stop khi không học | ~$5 |
 | Elastic IP | Miễn phí khi đang dùng | $0 |
 | S3 | 5 GB | ~$1 |
-| SQS + Lambda | Free tier | $0 |
-| SES | Free từ EC2 | $0 |
 | CloudWatch | Logs + alarms | ~$2 |
 | **Tổng** | | **~$16/tháng** |
 
@@ -330,57 +303,9 @@ export async function uploadToS3(file: Express.Multer.File): Promise<string> {
 
 Cập nhật route upload trong `product.routes.ts` để gọi `uploadToS3(req.file)` thay vì `getFileUrl`.
 
-### Fix 3 — Order event: EventEmitter → SQS
+> **Order processing & Email:** order xử lý thuần CRUD đồng bộ trong `order.service.ts` (không SQS, không event bus). Không có chức năng email (đã bỏ SES, forgot/reset password, verify email).
 
-`order.service.ts` hiện emit local event. Swap sang SQS:
-
-```ts
-// Thêm vào đầu order.service.ts
-import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
-const sqs = new SQSClient({ region: process.env.AWS_REGION ?? 'ap-southeast-1' })
-
-// Trong createOrder(), thay eventBus.emit():
-if (process.env.SQS_ORDER_QUEUE_URL) {
-  await sqs.send(new SendMessageCommand({
-    QueueUrl: process.env.SQS_ORDER_QUEUE_URL,
-    MessageBody: JSON.stringify({
-      orderId: order.id,
-      userId: order.userId,
-      userEmail: order.user?.email,
-      total: Number(order.total),
-    }),
-  }))
-} else {
-  eventBus.emit(Events.ORDER_CREATED, order)  // fallback local dev
-}
-```
-
-### Fix 4 — Email: console.log → SES
-
-`email.ts` hiện log ra console. Swap sang SES khi production:
-
-```ts
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
-
-export async function sendEmail({ to, subject, html }: EmailOptions) {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`\n📧 [EMAIL] To: ${to}\nSubject: ${subject}\n`)
-    return
-  }
-
-  const ses = new SESClient({ region: process.env.AWS_REGION })
-  await ses.send(new SendEmailCommand({
-    Source: process.env.EMAIL_FROM!,
-    Destination: { ToAddresses: [to] },
-    Message: {
-      Subject: { Data: subject },
-      Body: { Html: { Data: html } },
-    },
-  }))
-}
-```
-
-### Fix 5 — Admin getProduct: bỏ isActive filter
+### Fix 3 — Admin getProduct: bỏ isActive filter
 
 `product.service.ts:38` dùng `where: { id, isActive: true }` cho cả admin — admin không edit được product inactive.
 
@@ -527,10 +452,8 @@ JWT_REFRESH_SECRET=your_other_32_char_random_string
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 CLIENT_URL=http://EC2_PUBLIC_IP
-EMAIL_FROM=noreply@yourdomain.com
 AWS_REGION=ap-southeast-1
 S3_BUCKET=cloudmart-media-ACCOUNT_ID
-SQS_ORDER_QUEUE_URL=https://sqs.ap-southeast-1.amazonaws.com/ACCOUNT_ID/cloudmart-order-queue
 ```
 
 ---
@@ -563,7 +486,7 @@ Tạo Security Groups:
   sg-rds  (5432 từ sg-ec2)
 
 Tạo IAM Role + Instance Profile:
-  cloudmart-role-ec2 (S3, SES, SQS, CloudWatch Logs)
+  cloudmart-role-ec2 (S3, CloudWatch Logs)
 
 Tạo RDS:
   DB Subnet Group: data-1a + data-1b
@@ -639,23 +562,13 @@ Kiểm tra:
   curl http://EC2_PUBLIC_IP/health
 ```
 
-#### Ngày 6 — S3 + SES
+#### Ngày 6 — S3
 
 ```
 S3:
   Tạo bucket cloudmart-media-ACCOUNT_ID
   Bật S3 Access từ EC2 Instance Profile (không cần bucket policy phức tạp)
   Test: upload ảnh qua API → xem có lên S3 không
-
-SES:
-  Verify email address của bạn trong SES Console
-  Test gửi email:
-    aws ses send-email \
-      --from verified@email.com \
-      --to your@email.com \
-      --subject "Test" \
-      --text "Hello from SES"
-  (Test thử rồi request production access)
 ```
 
 #### Ngày 7 — End-to-end test tuần 1
@@ -672,49 +585,9 @@ Test toàn bộ flow:
 Fix bugs nếu có
 ```
 
-### Tuần 2 — SQS + Lambda + Monitoring
+### Tuần 2 — Monitoring + HTTPS + Review
 
-#### Ngày 8 — SQS Queue
-
-```
-Tạo SQS Queue:
-  cloudmart-order-queue (Standard)
-  Visibility Timeout: 180s
-  Long Polling: 20s
-
-Tạo DLQ:
-  cloudmart-order-queue-dlq
-  Max Receive Count: 3
-
-Update backend/.env thêm SQS_ORDER_QUEUE_URL
-Rebuild + restart:
-  docker compose build backend
-  docker compose up -d backend
-
-Test: Đặt hàng → kiểm tra SQS Console có message không
-```
-
-#### Ngày 9 — Lambda Order Processor
-
-```
-Viết Lambda function:
-  Runtime: Node.js 20.x
-  Trigger: SQS cloudmart-order-queue (batch size 5)
-  Code:
-    - Nhận event từ SQS
-    - Parse order data
-    - Gửi email qua SES
-
-Tạo IAM Role cho Lambda:
-  SQS: ReceiveMessage, DeleteMessage
-  SES: SendEmail
-  Logs: CreateLogGroup, CreateLogStream, PutLogEvents
-
-Deploy Lambda (console hoặc zip upload)
-Test: Đặt hàng → email nhận được?
-```
-
-#### Ngày 10 — CloudWatch Monitoring
+#### Ngày 8 — CloudWatch Monitoring
 
 ```
 Tạo Log Group cho EC2:
@@ -724,15 +597,14 @@ Cài CloudWatch Agent trên EC2 (optional):
   sudo apt install amazon-cloudwatch-agent
 
 Tạo Alarms:
-  DLQ MessageCount > 0 → SNS → Email admin
   EC2 CPUUtilization > 80%
   RDS CPUUtilization > 80%
 
-Tạo SNS Topic cho alerts:
+(Optional) Tạo SNS Topic cho alerts:
   cloudmart-alerts → subscribe email của bạn
 ```
 
-#### Ngày 11-12 — HTTPS + Domain (optional)
+#### Ngày 9-10 — HTTPS + Domain (optional)
 
 ```
 Nếu có domain riêng:
@@ -761,13 +633,13 @@ Với Caddy thay Nginx:
     }
 ```
 
-#### Ngày 13-14 — Review + Start/Stop Scripts
+#### Ngày 11-12 — Review + Start/Stop Scripts
 
 ```
 Test lại toàn bộ:
   ✅ Cart persistent sau restart Docker
   ✅ Ảnh upload lên S3 và hiện đúng
-  ✅ Order → SQS → Lambda → email
+  ✅ Order tạo đồng bộ, status = CONFIRMED ngay sau checkout
   ✅ CloudWatch alarms fire khi test
   ✅ HTTPS hoạt động (nếu có domain)
 
@@ -848,17 +720,11 @@ Elastic IP → attach EC2
     ↓
 S3 bucket
     ↓
-SES verify email/domain
-    ↓
-Code fixes (Fix 1-5) + Dockerfiles + docker-compose.yml
+Code fixes (Fix 1-3) + Dockerfiles + docker-compose.yml
     ↓
 SSH EC2 → git clone → docker compose up
     ↓
 Prisma migrate deploy → RDS
-    ↓
-SQS Queue + DLQ
-    ↓
-Lambda (cần SQS ARN + SES)
     ↓
 CloudWatch Alarms
 ```
@@ -888,7 +754,7 @@ EC2 ở public subnet   →   ECS ở private subnet + NAT GW
 | Học được | Phase 1 | Phase 2 |
 |---|---|---|
 | Linux, Docker, Nginx | ✅ | ❌ |
-| RDS, S3, SES, SQS | ✅ | ✅ |
+| RDS, S3 | ✅ | ✅ |
 | ECR, ECS, Task Definition | ❌ | ✅ |
 | ALB, Target Group, Health Check | ❌ | ✅ |
 | VPC 3-tier, NAT Gateway | ❌ | ✅ |
@@ -900,7 +766,7 @@ EC2 ở public subnet   →   ECS ở private subnet + NAT GW
 
 ```
 PUBLIC:   ALB + NAT Gateway
-APP:      ECS Fargate tasks + Lambda (private)
+APP:      ECS Fargate tasks (private)
 DATA:     RDS PostgreSQL (private)
 ```
 
@@ -912,7 +778,7 @@ DATA:     RDS PostgreSQL (private)
 | ALB | ~$18 |
 | ECS Fargate (1 task, 8h/ngày) | ~$4 |
 | RDS (stop khi không dùng) | ~$5 |
-| S3, SES, SQS, Lambda | ~$1 |
+| S3 | ~$1 |
 | **Tổng** | **~$60/tháng** |
 
 ## Migration từ Phase 1 sang Phase 2

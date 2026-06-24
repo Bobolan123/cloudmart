@@ -14,17 +14,17 @@ async function main() {
     prisma.user.upsert({
       where: { email: 'admin@cloudmart.dev' },
       update: {},
-      create: { email: 'admin@cloudmart.dev', passwordHash: await bcrypt.hash('Admin@123', 10), name: 'CloudMart Admin', role: 'ADMIN', isVerified: true },
+      create: { email: 'admin@cloudmart.dev', passwordHash: await bcrypt.hash('Admin@123', 10), name: 'CloudMart Admin', role: 'ADMIN' },
     }),
     prisma.user.upsert({
       where: { email: 'admin@gmail.com' },
       update: {},
-      create: { email: 'admin@gmail.com', passwordHash: await bcrypt.hash('admin', 10), name: 'Admin Gmail', role: 'ADMIN', isVerified: true },
+      create: { email: 'admin@gmail.com', passwordHash: await bcrypt.hash('admin', 10), name: 'Admin Gmail', role: 'ADMIN' },
     }),
     prisma.user.upsert({
       where: { email: 'user@gmail.com' },
       update: {},
-      create: { email: 'user@gmail.com', passwordHash: await bcrypt.hash('user', 10), name: 'Test User', role: 'CUSTOMER', isVerified: true },
+      create: { email: 'user@gmail.com', passwordHash: await bcrypt.hash('user', 10), name: 'Test User', role: 'CUSTOMER' },
     }),
   ])
 

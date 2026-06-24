@@ -1,8 +1,6 @@
 import bcrypt from 'bcryptjs'
-import crypto from 'crypto'
 import { prisma } from '../lib/prisma'
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/jwt'
-import { sendEmail } from '../lib/email'
 import { AppError } from '../middlewares/errorHandler'
 
 export async function register(email: string, password: string, name: string) {
@@ -19,24 +17,12 @@ export async function register(email: string, password: string, name: string) {
   return user
 }
 
-// export async function verifyEmail(token: string) {
-//   const user = await prisma.user.findFirst({ where: { verifyToken: token } })
-//   if (!user) throw new AppError(400, 'Invalid verification token')
-
-//   await prisma.user.update({
-//     where: { id: user.id },
-//     data: { isVerified: true, verifyToken: null },
-//   })
-// }
-
 export async function login(email: string, password: string) {
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user) throw new AppError(401, 'Invalid credentials')
 
   const valid = await bcrypt.compare(password, user.passwordHash)
   if (!valid) throw new AppError(401, 'Invalid credentials')
-
-  // if (!user.isVerified) throw new AppError(403, 'Please verify your email first')
 
   const payload = { userId: user.id, role: user.role }
   const accessToken = signAccessToken(payload)
@@ -82,35 +68,4 @@ export async function refresh(token: string) {
 
 export async function logout(token: string) {
   await prisma.refreshToken.deleteMany({ where: { token } })
-}
-
-export async function forgotPassword(email: string) {
-  const user = await prisma.user.findUnique({ where: { email } })
-  if (!user) return // silent — don't leak user existence
-
-  const resetToken = crypto.randomBytes(32).toString('hex')
-  const resetTokenExp = new Date(Date.now() + 1000 * 60 * 60) // 1 hour
-
-  await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetTokenExp } })
-
-  // await sendEmail({
-  //   to: email,
-  //   subject: 'Reset your CloudMart password',
-  //   html: `<p>Click to reset: <a href="${process.env.CLIENT_URL}/reset-password?token=${resetToken}">Reset Password</a></p><p>Expires in 1 hour.</p>`,
-  // })
-}
-
-export async function resetPassword(token: string, newPassword: string) {
-  const user = await prisma.user.findFirst({
-    where: { resetToken: token, resetTokenExp: { gt: new Date() } },
-  })
-  if (!user) throw new AppError(400, 'Invalid or expired reset token')
-
-  const passwordHash = await bcrypt.hash(newPassword, 10)
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash, resetToken: null, resetTokenExp: null },
-  })
-
-  await prisma.refreshToken.deleteMany({ where: { userId: user.id } })
 }

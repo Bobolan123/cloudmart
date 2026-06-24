@@ -6,8 +6,7 @@
 - **ORM**: Prisma + PostgreSQL 15
 - **Auth**: JWT (access 15m / refresh 7d) + bcryptjs
 - **Validation**: Zod (in controllers only)
-- **Events**: Node.js EventEmitter (local) → SQS/SNS khi lên AWS
-- **Email**: AWS SES (production) / console.log (development)
+- **Email**: không có (không gửi email — đã bỏ SES, forgot/reset password, verify email)
 - **Storage**: AWS S3 (production) / local `/uploads` (development)
 
 ---
@@ -42,10 +41,10 @@ npm start                # chạy dist/index.js (production)
 ```
 src/
   controllers/   # Parse request, gọi service, trả response. Không chứa business logic.
-  services/      # Toàn bộ business logic. Giao tiếp với Prisma và eventBus.
+  services/      # Toàn bộ business logic. Giao tiếp với Prisma.
   routes/        # Khai báo Router, wire middleware + controller. Không có logic.
   middlewares/   # authenticate, requireAdmin, errorHandler, validate
-  lib/           # prisma.ts, jwt.ts, email.ts, events.ts, eventListeners.ts
+  lib/           # prisma.ts, jwt.ts
 prisma/
   schema.prisma  # Source of truth cho database schema
 ```
@@ -105,11 +104,6 @@ if (!order) return res.status(404).json({ error: 'Not found' })
 - Access token: 15 phút, Refresh token: 7 ngày (stored trong DB)
 - Refresh token rotation: delete cũ, tạo mới mỗi lần refresh
 
-### Events
-- Emit event sau khi hoàn thành transaction, không trong transaction
-- Handler trong `lib/eventListeners.ts` — luôn try/catch, log lỗi, không re-throw
-- Khi deploy AWS: thay `eventBus.emit()` bằng SQS `sendMessage()`
-
 ### Response format
 ```ts
 // Success
@@ -133,10 +127,8 @@ JWT_REFRESH_SECRET=...     # khác ACCESS_SECRET
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:3000
-EMAIL_FROM=noreply@cloudmart.dev
 # AWS (production only)
 AWS_REGION=ap-southeast-1
-SES_SMTP_HOST=...
 S3_BUCKET=cloudmart-media
 S3_REGION=ap-southeast-1
 ```
@@ -147,8 +139,7 @@ S3_REGION=ap-southeast-1
 
 ## Security Rules
 - Không bao giờ trả `passwordHash` trong response — luôn dùng `select`
-- `forgotPassword` không xác nhận email có tồn tại hay không (prevent user enumeration)
-- Reset token expire sau 1 giờ; revoke tất cả refresh token khi reset password
+- Revoke tất cả refresh token của user khi đổi mật khẩu
 - CORS chỉ cho phép `CLIENT_URL`
 
 ---
@@ -156,8 +147,6 @@ S3_REGION=ap-southeast-1
 ## AWS Migration Notes
 | Local | AWS Production |
 |---|---|
-| `EventEmitter` | SQS / SNS |
-| `nodemailer` / console | AWS SES |
 | `/uploads` folder | AWS S3 |
 | `docker-compose` postgres | RDS PostgreSQL |
 | `ts-node-dev` | ECS Fargate / EC2 |

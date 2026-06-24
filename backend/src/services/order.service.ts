@@ -1,24 +1,7 @@
 import { prisma } from '../lib/prisma'
 import { getCart, clearCart } from './cart.service'
-import { eventBus, Events } from '../lib/events'
 import { AppError } from '../middlewares/errorHandler'
 import { OrderStatus } from '@prisma/client'
-import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
-
-const sqs = process.env.SQS_ORDER_QUEUE_URL
-  ? new SQSClient({ region: process.env.AWS_REGION ?? 'ap-southeast-1' })
-  : null
-
-async function emitOrderCreated(order: { id: string; userId: string; total: unknown }) {
-  if (sqs && process.env.SQS_ORDER_QUEUE_URL) {
-    await sqs.send(new SendMessageCommand({
-      QueueUrl: process.env.SQS_ORDER_QUEUE_URL,
-      MessageBody: JSON.stringify({ orderId: order.id, userId: order.userId, total: Number(order.total) }),
-    }))
-  } else {
-    eventBus.emit(Events.ORDER_CREATED, order)
-  }
-}
 
 export async function createOrder(userId: string, addressId?: string, note?: string) {
   const cartItems = await getCart(userId)
@@ -69,8 +52,6 @@ export async function createOrder(userId: string, addressId?: string, note?: str
 
   await clearCart(userId)
 
-  await emitOrderCreated(order)
-
   return order
 }
 
@@ -110,8 +91,6 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
   if (!order) throw new AppError(404, 'Order not found')
 
   const updated = await prisma.order.update({ where: { id }, data: { status } })
-
-  eventBus.emit(Events.ORDER_STATUS_CHANGED, updated)
 
   return updated
 }

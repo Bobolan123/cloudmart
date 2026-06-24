@@ -11,7 +11,6 @@ import cartRoutes from './routes/cart.routes'
 import orderRoutes from './routes/order.routes'
 import userRoutes from './routes/user.routes'
 import { errorHandler } from './middlewares/errorHandler'
-import { registerEventListeners } from './lib/eventListeners'
 
 const app = express()
 const PORT = process.env.PORT ?? 4000
@@ -33,8 +32,6 @@ app.use('/api/orders', orderRoutes)
 app.use('/api/users', userRoutes)
 
 app.use(errorHandler)
-
-registerEventListeners()
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`)
